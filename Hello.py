@@ -1,51 +1,62 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import streamlit as st
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+
 from streamlit.logger import get_logger
 
 LOGGER = get_logger(__name__)
 
+# Initialize Gemini-Pro 
+load_dotenv()
+GOOGLE_API_KEY=os.getenv("GOOGLE_API_KEY")
+
+#genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=GOOGLE_API_KEY)
+#model = genai.GenerativeModel('gemini-pro')
+
+model = genai.GenerativeModel(model_name = "gemini-pro")
+
+# Gemini uses 'model' for assistant; Streamlit uses 'assistant'
+def role_to_streamlit(role):
+  if role == "model":
+    return "assistant"
+  else:
+    return role
 
 def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+# Add a Gemini Chat history object to Streamlit session state
+  if "chat" not in st.session_state:
+    st.session_state.chat = model.start_chat(history = [])
 
-    st.write("# Welcome to Streamlit! 👋")
+  if 'chat' not in st.session_state:
+    st.session_state.chat = {}  # Initialize it to an empty dictionary
 
-    st.sidebar.success("Select a demo above.")
+  #st.session_state.chat['history'] = ""  # Now you can safely set 'history'
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+  # Display Form Title
+  st.title("Chat with Google Gemini-Pro!")
 
+  #st.session_state.chat.history =""
+
+  # Display chat messages from history above current input box
+  for message in st.session_state.chat.history:
+    with st.chat_message(role_to_streamlit(message.role)):
+        st.markdown(message.parts[0].text)
+
+  # Accept user's next message, add to context, resubmit context to Gemini
+  if prompt := st.chat_input("I possess a well of knowledge. What would you like to know?"):
+    # Display user's last message
+    st.chat_message("user").markdown(prompt)
+    
+    # Send user entry to Gemini and read the response
+    response = st.session_state.chat.send_message(prompt) 
+    
+    # Display last 
+    with st.chat_message("assistant"):
+        st.markdown(response.text)
 
 if __name__ == "__main__":
     run()
+
